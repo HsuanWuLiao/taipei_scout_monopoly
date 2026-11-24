@@ -1,0 +1,1992 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>雙北捷運鐵道・童軍大富翁實境遊戲</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      background-color: #f3f6f4;
+      color: #1e293b;
+    }
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-rows: repeat(4, minmax(112px, auto));
+      gap: 0.5rem;
+    }
+    .cell-pos-0  { grid-column: 1; grid-row: 1; }
+    .cell-pos-1  { grid-column: 2; grid-row: 1; }
+    .cell-pos-2  { grid-column: 3; grid-row: 1; }
+    .cell-pos-3  { grid-column: 4; grid-row: 1; }
+    .cell-pos-4  { grid-column: 4; grid-row: 2; }
+    .cell-pos-5  { grid-column: 4; grid-row: 3; }
+    .cell-pos-6  { grid-column: 4; grid-row: 4; }
+    .cell-pos-7  { grid-column: 3; grid-row: 4; }
+    .cell-pos-8  { grid-column: 2; grid-row: 4; }
+    .cell-pos-9  { grid-column: 1; grid-row: 4; }
+    .cell-pos-10 { grid-column: 1; grid-row: 3; }
+    .cell-pos-11 { grid-column: 1; grid-row: 2; }
+    .board-center {
+      grid-column: 2 / span 2;
+      grid-row: 2 / span 2;
+    }
+    @media (max-width: 768px) {
+      .board-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: auto;
+      }
+      .cell-pos-0, .cell-pos-1, .cell-pos-2, .cell-pos-3,
+      .cell-pos-4, .cell-pos-5, .cell-pos-6, .cell-pos-7,
+      .cell-pos-8, .cell-pos-9, .cell-pos-10, .cell-pos-11 {
+        grid-column: auto;
+        grid-row: auto;
+      }
+      .board-center {
+        grid-column: 1 / span 2;
+        grid-row: auto;
+        order: -1;
+      }
+    }
+    @keyframes dice-shake {
+      0%, 100% { transform: rotate(0deg) scale(1); }
+      25% { transform: rotate(-14deg) scale(1.08); }
+      50% { transform: rotate(14deg) scale(1.12); }
+      75% { transform: rotate(-8deg) scale(1.05); }
+    }
+    .dice-rolling {
+      animation: dice-shake 0.35s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- Top Navbar -->
+  <header class="bg-emerald-900 text-white shadow-md sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-amber-400 text-emerald-950 flex items-center justify-center font-black shadow">
+          <i data-lucide="compass" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold leading-tight tracking-wide">雙北捷運鐵道・童軍大富翁</h1>
+          <p class="text-xs text-emerald-200">臺北 ✕ 新北實境闖關｜公告現值地價｜Google Sheet 雲端同步</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <span id="syncBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-800 text-emerald-100 border border-emerald-700">
+          <span id="syncDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span id="syncLabel">本機演示模式</span>
+        </span>
+        <button id="btnSheetModal" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-emerald-900 hover:bg-emerald-50 transition shadow-sm">
+          <i data-lucide="table" class="w-3.5 h-3.5"></i>
+          Google Sheet 設定
+        </button>
+        <button id="btnPlayersModal" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white transition">
+          <i data-lucide="users" class="w-3.5 h-3.5"></i>
+          小隊設定
+        </button>
+        <button id="btnResetGame" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-800 hover:bg-rose-700 text-emerald-100 hover:text-white transition border border-emerald-700">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          重置開局
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl w-full mx-auto px-4 py-5 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+    <!-- Left / Center: Monopoly Board -->
+    <section class="lg:col-span-8 flex flex-col gap-4">
+      <div id="boardContainer" class="board-grid bg-emerald-50/80 p-3 rounded-2xl border border-emerald-200 shadow-sm">
+        <!-- Station cells rendered dynamically -->
+        <div class="board-center bg-white rounded-xl border border-emerald-200 p-4 flex flex-col items-center justify-between text-center shadow-inner">
+          <div class="w-full flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 pb-2">
+            <span class="font-semibold text-emerald-800">第 <span id="turnCounter">1</span> 回合</span>
+            <span id="activePlayerBadge" class="inline-flex items-center gap-1.5 font-bold text-slate-800"></span>
+          </div>
+
+          <div class="my-3 flex flex-col items-center gap-2">
+            <div id="diceVisual" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-700 to-emerald-900 text-white flex items-center justify-center text-3xl font-black shadow-lg border-2 border-amber-300 select-none">
+              🎲
+            </div>
+            <p id="statusHint" class="text-sm font-medium text-slate-700 max-w-xs">
+              輪到 <span class="font-bold text-emerald-800" id="hintPlayerName">藍鯨小隊</span>，請擲骰子決定前進步數！
+            </p>
+          </div>
+
+          <div class="w-full flex flex-col sm:flex-row gap-2 justify-center">
+            <button id="btnRollDice" type="button" class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold text-sm shadow transition">
+              <i data-lucide="dices" class="w-4 h-4"></i>
+              擲骰子前進
+            </button>
+            <button id="btnSyncNow" type="button" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-semibold text-xs transition" title="從 Google Sheet 同步最新資料">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              同步試算表
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rules Summary Strip -->
+      <div class="bg-white rounded-xl border border-slate-200 p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div class="flex items-start gap-2">
+          <span class="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 shrink-0"><i data-lucide="train-front" class="w-4 h-4"></i></span>
+          <div>
+            <p class="font-bold text-slate-800">雙北 12 站點</p>
+            <p class="text-slate-500">涵蓋北捷與台鐵雙北車站</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-2">
+          <span class="p-1.5 rounded-lg bg-sky-100 text-sky-800 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></span>
+          <div>
+            <p class="font-bold text-slate-800">雙領域問答</p>
+            <p class="text-slate-500">童軍/文史題賺 NT$1k–10k</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-2">
+          <span class="p-1.5 rounded-lg bg-amber-100 text-amber-800 shrink-0"><i data-lucide="landmark" class="w-4 h-4"></i></span>
+          <div>
+            <p class="font-bold text-slate-800">公告現值地價</p>
+            <p class="text-slate-500">依現值換算並取整數千元</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-2">
+          <span class="p-1.5 rounded-lg bg-violet-100 text-violet-800 shrink-0"><i data-lucide="layers" class="w-4 h-4"></i></span>
+          <div>
+            <p class="font-bold text-slate-800">土地可重複購買</p>
+            <p class="text-slate-500">同站可疊加持股與過路費</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Sidebar: Players, Station Inspector & Logs -->
+    <aside class="lg:col-span-4 flex flex-col gap-4">
+      <!-- Players Card -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+            <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i>
+            小隊資產與位置
+          </h2>
+          <span class="text-xs text-slate-400">點選棋盤可看車站詳情</span>
+        </div>
+        <div id="playersList" class="space-y-2.5"></div>
+      </div>
+
+      <!-- Selected Station Details -->
+      <div id="stationInspector" class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+        <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5 mb-2">
+          <i data-lucide="map-pin" class="w-4 h-4 text-emerald-600"></i>
+          車站土地資訊
+        </h2>
+        <div id="inspectorBody" class="text-xs text-slate-600 space-y-1.5">
+          <p class="text-slate-400">點擊棋盤上任一車站即可檢視公告現值、遊戲地價與持有小隊。</p>
+        </div>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex-1 flex flex-col min-h-[220px]">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+            <i data-lucide="scroll-text" class="w-4 h-4 text-sky-600"></i>
+            即時戰報日誌
+          </h2>
+          <button id="btnExportJson" type="button" class="text-xs text-emerald-700 hover:underline font-medium">匯出紀錄</button>
+        </div>
+        <div id="gameLog" class="flex-1 overflow-y-auto max-h-64 space-y-1.5 text-xs pr-1"></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Toast Container -->
+  <div id="toastBox" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Trivia Modal -->
+  <div id="triviaModal" class="fixed inset-0 z-40 hidden bg-slate-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-emerald-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span id="qCategoryBadge" class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-400 text-slate-900">童軍知識</span>
+          <span id="qDifficultyBadge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-700 text-emerald-100">中等</span>
+        </div>
+        <span id="qRewardBadge" class="text-sm font-extrabold text-amber-300">獎金 NT$5,000</span>
+      </div>
+      <div class="p-5 space-y-4">
+        <div>
+          <p id="qStationSubtitle" class="text-xs font-semibold text-emerald-700 mb-1"></p>
+          <h3 id="qText" class="text-base font-bold text-slate-900 leading-relaxed"></h3>
+        </div>
+        <div id="qOptions" class="grid grid-cols-1 gap-2"></div>
+        <div id="qFeedback" class="hidden rounded-xl p-3 text-xs leading-relaxed"></div>
+        <div class="flex justify-end">
+          <button id="btnTriviaContinue" type="button" class="hidden px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-bold transition">
+            繼續購地決策 →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buy Land Modal -->
+  <div id="buyModal" class="fixed inset-0 z-40 hidden bg-slate-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-amber-500 text-slate-950 px-5 py-3.5 flex items-center justify-between">
+        <h3 class="font-extrabold text-base flex items-center gap-2">
+          <i data-lucide="building-2" class="w-5 h-5"></i>
+          土地交易確認
+        </h3>
+        <span id="buyStationTag" class="text-xs font-bold bg-white/80 px-2.5 py-0.5 rounded-full"></span>
+      </div>
+      <div class="p-5 space-y-4 text-sm">
+        <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-1.5 text-xs">
+          <div class="flex justify-between"><span class="text-slate-500">鄰近地標</span><span id="buyLandmark" class="font-semibold text-slate-800"></span></div>
+          <div class="flex justify-between"><span class="text-slate-500">參考公告現值</span><span id="buyAnnounced" class="font-semibold text-slate-800"></span></div>
+          <div class="flex justify-between"><span class="text-slate-500">遊戲地價（整數千元）</span><span id="buyPrice" class="font-extrabold text-emerald-700 text-sm"></span></div>
+          <div class="flex justify-between"><span class="text-slate-500">目前累計購買次數</span><span id="buyCount" class="font-semibold text-violet-700"></span></div>
+          <div class="flex justify-between"><span class="text-slate-500">目前小隊現金</span><span id="buyCash" class="font-bold text-slate-900"></span></div>
+        </div>
+        <p id="buyHintText" class="text-xs text-slate-600"></p>
+        <div class="flex gap-2.5 justify-end">
+          <button id="btnSkipBuy" type="button" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition">
+            暫不購買（結束回合）
+          </button>
+          <button id="btnConfirmBuy" type="button" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition">
+            購買該站土地
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Players Setup Modal -->
+  <div id="playersModal" class="fixed inset-0 z-40 hidden bg-slate-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <h3 class="font-bold text-sm flex items-center gap-2">
+          <i data-lucide="users" class="w-4 h-4 text-amber-400"></i>
+          參賽小隊管理（2–4 隊）
+        </h3>
+        <button id="btnClosePlayersModal" type="button" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="p-5 space-y-3">
+        <div id="playersEditRows" class="space-y-2"></div>
+        <div class="flex items-center justify-between pt-2">
+          <button id="btnAddPlayer" type="button" class="text-xs font-bold text-emerald-700 hover:underline">+ 新增小隊（最多 4 隊）</button>
+          <button id="btnSavePlayers" type="button" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold">儲存並套用</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Sheet Config Modal -->
+  <div id="sheetModal" class="fixed inset-0 z-40 hidden bg-slate-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="bg-emerald-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
+        <h3 class="font-bold text-sm flex items-center gap-2">
+          <i data-lucide="table" class="w-4 h-4 text-amber-400"></i>
+          Google Sheet 雲端資料庫連線設定
+        </h3>
+        <button id="btnCloseSheetModal" type="button" class="text-emerald-200 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="p-5 space-y-4 overflow-y-auto text-xs">
+        <div class="space-y-1.5">
+          <label for="gasUrlInput" class="block font-bold text-slate-800">Google Apps Script Web App URL（選填，連線後可即時多人同步）</label>
+          <div class="flex gap-2">
+            <input id="gasUrlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="flex-1 px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs" />
+            <button id="btnSaveGasUrl" type="button" class="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold shrink-0">連線測試</button>
+          </div>
+          <p class="text-slate-500">未填寫時預設以「本機演示模式」運行，內建完整雙北 12 站與題庫，可立即遊玩。</p>
+        </div>
+
+        <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-800">Google Apps Script 橋接程式碼（貼入試算表「擴充功能 → Apps Script」）</span>
+            <button id="btnCopyGas" type="button" class="px-2.5 py-1 rounded bg-slate-800 text-white hover:bg-slate-700 font-semibold">複製程式碼</button>
+          </div>
+          <pre id="gasCodeBlock" class="bg-slate-900 text-emerald-300 p-3 rounded-lg overflow-x-auto text-[11px] leading-relaxed">function doGet(e) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const read = (name) =&gt; {
+    const sh = ss.getSheetByName(name);
+    if (!sh) return [];
+    const [h, ...rows] = sh.getDataRange().getValues();
+    return rows.filter(r =&gt; r[0] !== '').map(r =&gt; Object.fromEntries(h.map((k, i) =&gt; [k, r[i]])));
+  };
+  return ContentService.createTextOutput(JSON.stringify({
+    stations: read('Stations'), questions: read('Questions'),
+    players: read('Players'), transactions: read('Transactions').slice(-20)
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const data = JSON.parse(e.postData.contents);
+  if (data.action === 'log' &amp;&amp; data.row) {
+    ss.getSheetByName('Transactions').appendRow(data.row);
+  }
+  if (data.action === 'syncPlayers' &amp;&amp; Array.isArray(data.players)) {
+    const sh = ss.getSheetByName('Players');
+    if (sh.getLastRow() &gt; 1) sh.getRange(2, 1, sh.getLastRow() - 1, 8).clearContent();
+    data.players.forEach((p, idx) =&gt; sh.getRange(idx + 2, 1, 1, 8).setValues([[
+      p.id, p.name, p.color, p.pos, p.cash, p.propsCount, p.totalAsset, new Date().toLocaleString('zh-TW')
+    ]]));
+  }
+  if (data.action === 'syncStations' &amp;&amp; Array.isArray(data.stations)) {
+    const sh = ss.getSheetByName('Stations');
+    data.stations.forEach((s, idx) =&gt; {
+      sh.getRange(idx + 2, 9, 1, 2).setValues([[s.purchaseCount, s.owners.join('、')]]);
+    });
+  }
+  return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Grounded Initial Dataset: Taipei & New Taipei MRT / Railway Stations ---
+    const INITIAL_STATIONS = [
+      { id: 'S01', name: '起點｜童軍總部', city: '台北', type: '起點', line: '起點', landmark: '出發補給 +NT$2,000', announcedVal: 0, price: 0, baseToll: 0, purchaseCount: 0, owners: [] },
+      { id: 'S02', name: '台北101/世貿站', city: '台北', type: '捷運', line: '淡水信義線', landmark: '台北101大樓', announcedVal: 2112000, price: 21000, baseToll: 4000, purchaseCount: 0, owners: [] },
+      { id: 'S03', name: '市政府站', city: '台北', type: '捷運', line: '板南線', landmark: '國泰置地廣場', announcedVal: 2026000, price: 20000, baseToll: 4000, purchaseCount: 0, owners: [] },
+      { id: 'S04', name: '台北車站', city: '台北', type: '捷運/台鐵', line: '板南/紅線/台鐵', landmark: '新光摩天大樓與站前商圈', announcedVal: 2000000, price: 20000, baseToll: 4000, purchaseCount: 0, owners: [] },
+      { id: 'S05', name: '忠孝復興站', city: '台北', type: '捷運', line: '板南/文湖線', landmark: '東區商圈', announcedVal: 1500000, price: 15000, baseToll: 3000, purchaseCount: 0, owners: [] },
+      { id: 'S06', name: '西門站', city: '台北', type: '捷運', line: '板南/綠線', landmark: '西門紅樓與西門町', announcedVal: 1200000, price: 12000, baseToll: 2500, purchaseCount: 0, owners: [] },
+      { id: 'S07', name: '松山車站', city: '台北', type: '捷運/台鐵', line: '松山新店/台鐵', landmark: '饒河街夜市與慈祐宮', announcedVal: 1100000, price: 11000, baseToll: 2000, purchaseCount: 0, owners: [] },
+      { id: 'S08', name: '板橋車站', city: '新北', type: '捷運/台鐵', line: '板南線/台鐵', landmark: '新板特區與板橋車站', announcedVal: 900000, price: 9000, baseToll: 2000, purchaseCount: 0, owners: [] },
+      { id: 'S09', name: '龍山寺站', city: '台北', type: '捷運', line: '板南線', landmark: '艋舺龍山寺與剝皮寮', announcedVal: 800000, price: 8000, baseToll: 1500, purchaseCount: 0, owners: [] },
+      { id: 'S10', name: '南港車站', city: '台北', type: '捷運/台鐵', line: '板南線/台鐵', landmark: '南港軟體與車站商圈', announcedVal: 700000, price: 7000, baseToll: 1500, purchaseCount: 0, owners: [] },
+      { id: 'S11', name: '淡水站', city: '新北', type: '捷運', line: '淡水信義線', landmark: '淡水老街與紅毛城', announcedVal: 400000, price: 4000, baseToll: 1000, purchaseCount: 0, owners: [] },
+      { id: 'S12', name: '瑞芳車站', city: '新北', type: '台鐵', line: '宜蘭/平溪線', landmark: '瑞芳老街與九份門戶', announcedVal: 300000, price: 3000, baseToll: 500, purchaseCount: 0, owners: [] }
+    ];
+
+    const INITIAL_QUESTIONS = [
+  {
+    "id": "Q01",
+    "stationId": "S02",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "童軍「日行一善」的英文口號「Do a Good Turn Daily」是由哪位創始人提出？",
+    "options": [
+      "貝登堡 (Robert Baden-Powell)",
+      "杜威",
+      "南丁格爾",
+      "柯南道爾"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "貝登堡於1908年出版《童軍警書》並倡導日行一善。"
+  },
+  {
+    "id": "Q02",
+    "stationId": "S02",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "世界童軍徽章（紫羅蘭徽）上的兩顆五角星象徵什麼？",
+    "options": [
+      "真理與知識",
+      "山脈與海洋",
+      "勇氣與速度",
+      "露營與生火"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "紫羅蘭徽上的兩顆五角星象徵童軍追求真理與知識。"
+  },
+  {
+    "id": "Q03",
+    "stationId": "S02",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "童軍「三指禮」中三根手指伸直所代表的意義為何？",
+    "options": [
+      "對神明與國家、對他人、對自己盡責",
+      "每日三餐定時",
+      "三種繩結技能",
+      "三天兩夜露營"
+    ],
+    "ans": 0,
+    "reward": 8000,
+    "exp": "三指禮對應童軍諾言中的三項核心責任。"
+  },
+  {
+    "id": "Q04",
+    "stationId": "S02",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "台北101大樓鄰近的四四南村，早期是哪一個軍事單位的眷村？",
+    "options": [
+      "聯勤第四十四兵工廠",
+      "海軍陸戰隊",
+      "空軍防砲部隊",
+      "憲兵司令部"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "四四南村原為聯勤第四十四兵工廠員工與眷屬居住的眷村。"
+  },
+  {
+    "id": "Q05",
+    "stationId": "S02",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "信義計畫區在1980年代開發前，曾是台北重要的什麼設施與用地？",
+    "options": [
+      "軍事兵工廠與農田眷村",
+      "淡水河商港",
+      "台灣總督府",
+      "大稻埕茶行"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "信義計畫區前身為聯勤四四兵工廠及四四南村等軍事與眷村用地。"
+  },
+  {
+    "id": "Q06",
+    "stationId": "S02",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "台北101大樓的風阻尼球（TMD）重達約幾公噸，用於減緩強風與地震搖晃？",
+    "options": [
+      "660公噸",
+      "120公噸",
+      "1500公噸",
+      "300公噸"
+    ],
+    "ans": 0,
+    "reward": 9000,
+    "exp": "台北101調諧質塊阻尼器重約660公噸，位於87至92樓之間。"
+  },
+  {
+    "id": "Q07",
+    "stationId": "S03",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "童軍在戶外活動時，若需向隊友發出「集合」哨音，通常採用什麼節奏？",
+    "options": [
+      "一長音",
+      "三短音",
+      "長短交錯",
+      "連續五短音"
+    ],
+    "ans": 0,
+    "reward": 1000,
+    "exp": "童軍哨音中，一長音通常代表全體注意或集合。"
+  },
+  {
+    "id": "Q08",
+    "stationId": "S03",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "在童軍繩結中，常用於將兩條粗細相同的繩索接在一起，且容易解開的結是？",
+    "options": [
+      "平結 (Square Knot)",
+      "稱人結",
+      "雙套結",
+      "牧童結"
+    ],
+    "ans": 0,
+    "reward": 4000,
+    "exp": "平結適用於連接兩條粗細相近的繩子，常用於包紮與綁物。"
+  },
+  {
+    "id": "Q09",
+    "stationId": "S03",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "稱人結（Bowline）在童軍實務中被稱為「繩結之王」，其最大特性為何？",
+    "options": [
+      "形成不滑動的固定繩圈且受力後仍易解開",
+      "只能用來綁鞋帶",
+      "遇水會自動鬆脫",
+      "必須使用兩條不同材質的繩子"
+    ],
+    "ans": 0,
+    "reward": 7000,
+    "exp": "稱人結能形成牢固不縮小的繩圈，即使承受重拉仍可輕鬆解開。"
+  },
+  {
+    "id": "Q10",
+    "stationId": "S03",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "捷運市政府站周邊的松山文創園區，前身為日治時期的哪一座工廠？",
+    "options": [
+      "松山菸草工場",
+      "台北啤酒工場",
+      "南港輪胎廠",
+      "板橋製紙廠"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "松山文創園區前身為建於1937年的台灣總督府專賣局松山菸草工場。"
+  },
+  {
+    "id": "Q11",
+    "stationId": "S03",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "台北市政府現址於1994年遷入信義區，該市政大樓俯視造型呈現什麼字形？",
+    "options": [
+      "雙十字形",
+      "口字形",
+      "圓形",
+      "三角形"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "台北市政大樓採雙十造型設計，象徵國家慶典與開放空間。"
+  },
+  {
+    "id": "Q12",
+    "stationId": "S03",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "橫貫信義區與松山區的「瑠公圳」支線，最初是由清代哪位人物主持開鑿以灌溉台北盆地？",
+    "options": [
+      "郭錫瑠",
+      "劉銘傳",
+      "沈葆楨",
+      "陳賴章"
+    ],
+    "ans": 0,
+    "reward": 8000,
+    "exp": "清乾隆年間郭錫瑠父子開鑿瑠公圳，引新店溪水灌溉台北東區農田。"
+  },
+  {
+    "id": "Q13",
+    "stationId": "S04",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "童軍露營選擇營地時，「背風、向陽、地勢較高且近水源」主要是為了防範什麼？",
+    "options": [
+      "積水淹水與強風低溫",
+      "蚊蟲太少",
+      "太陽太早升起",
+      "訊號太強"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "地勢較高可防暴雨積水，背風向陽則能維持營地乾燥與溫暖。"
+  },
+  {
+    "id": "Q14",
+    "stationId": "S04",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "在無痕山林（Leave No Trace）七大原則中，露營產生的廚餘與垃圾應如何處理？",
+    "options": [
+      "全部打包帶下山",
+      "就地掩埋於樹下",
+      "丟入溪流沖走",
+      "全部就地焚燒"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "無痕山林強調「自己的垃圾自己帶下山」，不破壞自然生態。"
+  },
+  {
+    "id": "Q15",
+    "stationId": "S04",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "傳統童軍「追蹤記號」中，在地面以樹枝或石塊排成「圓圈中間一點」代表什麼意思？",
+    "options": [
+      "我已回家（任務結束）",
+      "前方有危險",
+      "此處有乾淨水源",
+      "向左轉五十公尺"
+    ],
+    "ans": 0,
+    "reward": 9000,
+    "exp": "童軍追蹤記號中，圓圈加中心一點表示「我已回家」或結束追蹤。"
+  },
+  {
+    "id": "Q16",
+    "stationId": "S04",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "台北車站南側著名的「新光摩天大樓」曾是台灣第一高樓，直到哪棟大樓落成才被超越？",
+    "options": [
+      "台北101大樓",
+      "高雄85大樓",
+      "台北圓山飯店",
+      "微風南山"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "新光摩天大樓曾為台北地標，後由高雄85大樓與台北101陸續超越。"
+  },
+  {
+    "id": "Q17",
+    "stationId": "S04",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "現今台北車站前忠孝西路一帶，在清代台北府城時期對應哪一座城門？",
+    "options": [
+      "北門（承恩門）附近",
+      "南門（麗正門）",
+      "東門（景福門）",
+      "小南門（重熙門）"
+    ],
+    "ans": 0,
+    "reward": 6000,
+    "exp": "台北車站西側鄰近清代台北府城北門（承恩門），為昔日進出大稻埕要道。"
+  },
+  {
+    "id": "Q18",
+    "stationId": "S04",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "清代劉銘傳興建台灣鐵路時，台北火車站最初（1891年）設於現今哪一帶？",
+    "options": [
+      "大稻埕河溝頭",
+      "萬華剝皮寮",
+      "信義計畫區",
+      "南港展覽館"
+    ],
+    "ans": 0,
+    "reward": 8000,
+    "exp": "1891年清代台北車站位於大稻埕河溝頭一帶，後於日治時期遷至現址附近。"
+  },
+  {
+    "id": "Q19",
+    "stationId": "S05",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "台灣童軍諾言的第一條核心精神為何？",
+    "options": [
+      "憑我的榮譽，我願盡力遵守童軍規律",
+      "每日至少幫助十個人",
+      "永遠攜帶指南針",
+      "不參加任何戶外活動"
+    ],
+    "ans": 0,
+    "reward": 1000,
+    "exp": "童軍諾言強調榮譽與遵守童軍規律、對國家與他人盡責。"
+  },
+  {
+    "id": "Q20",
+    "stationId": "S05",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "進行野外炊事使用卡式瓦斯爐時，最需要注意哪項安全守則？",
+    "options": [
+      "不可將兩個爐具併排使用或蓋住瓦斯罐上方",
+      "可以在密閉帳篷內使用",
+      "鍋具越大越好越安全",
+      "瓦斯罐快用完時可加熱瓶身"
+    ],
+    "ans": 0,
+    "reward": 4000,
+    "exp": "併排使用或大鍋蓋住瓦斯罐易造成過熱氣爆，應保持通風與安全距離。"
+  },
+  {
+    "id": "Q21",
+    "stationId": "S05",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "童軍「雙套結（Clove Hitch）」最適合用來進行哪一項工程作業？",
+    "options": [
+      "將繩索固定在木樁或樹幹上作為起結",
+      "連接兩條不同粗細的繩子",
+      "製作急救三角巾",
+      "編織裝飾用中國結"
+    ],
+    "ans": 0,
+    "reward": 7000,
+    "exp": "雙套結常用於將繩索起頭或收尾固定於圓柱木樁上。"
+  },
+  {
+    "id": "Q22",
+    "stationId": "S05",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "忠孝復興站所在的東區商圈，早期在台北都市發展前主要是什麼產業與地景？",
+    "options": [
+      "大片農田與水圳灌溉區",
+      "大型國際機場",
+      "煤礦開採區",
+      "遠洋漁港"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "1970年代東區開發前，大安區忠孝東路一帶仍是大片稻田與水圳。"
+  },
+  {
+    "id": "Q23",
+    "stationId": "S05",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "忠孝東路四段巷弄早期曾有「瑠公圳」流經，現今捷運站周邊哪座公園保留了水圳意象？",
+    "options": [
+      "大安區瑠公公園",
+      "大安森林公園",
+      "二二八和平公園",
+      "青年公園"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "忠孝復興站旁的瑠公公園即為紀念瑠公圳歷史而建。"
+  },
+  {
+    "id": "Q24",
+    "stationId": "S05",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "捷運文湖線（原木柵線）於1996年通車，是台灣第一條營運的什麼系統？",
+    "options": [
+      "中運量無人駕駛捷運系統",
+      "高鐵系統",
+      "輕軌系統",
+      "地下重運量鐵路"
+    ],
+    "ans": 0,
+    "reward": 8000,
+    "exp": "木柵線為台灣第一條中運量全自動無人駕駛膠輪捷運系統。"
+  },
+  {
+    "id": "Q25",
+    "stationId": "S06",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "童軍小隊制度中，一個標準童軍小隊通常由幾名成員組成，以利合作與分工？",
+    "options": [
+      "6至8人",
+      "2至3人",
+      "20至30人",
+      "50人以上"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "小隊制度為童軍核心組織，6至8人最利於民主決策與野外分工。"
+  },
+  {
+    "id": "Q26",
+    "stationId": "S06",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "戶外迷途時，「STOP」求生口訣中的「T」代表什麼行動？",
+    "options": [
+      "Think 思考現況與周遭資源",
+      "Try 盲目往山下衝",
+      "Throw 丟棄背包減重",
+      "Talk 大聲呼喊整夜"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "STOP為Stop停下、Think思考、Observe觀察、Plan計畫。"
+  },
+  {
+    "id": "Q27",
+    "stationId": "S06",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "若在北半球晴朗夜晚沒有指北針，可透過尋找哪一顆星來辨認正北方？",
+    "options": [
+      "北極星（小熊座α星）",
+      "天狼星",
+      "織女星",
+      "參宿四"
+    ],
+    "ans": 0,
+    "reward": 9000,
+    "exp": "北極星幾乎位於地球北極軸延長線上，可用大熊座或仙后座定位。"
+  },
+  {
+    "id": "Q28",
+    "stationId": "S06",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "西門站旁的「西門紅樓」最初興建於1908年，當時的主要用途為何？",
+    "options": [
+      "公營市場（八角堂）",
+      "鐵路調度場",
+      "總督官邸",
+      "電信總局"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "西門紅樓原為日治時期台灣第一座官方興建的公營市場。"
+  },
+  {
+    "id": "Q29",
+    "stationId": "S06",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "「西門町」這個地名起源於哪一個歷史時期的行政區劃？",
+    "options": [
+      "日治時期町名改正（1922年）",
+      "清代乾隆年間",
+      "荷蘭統治時期",
+      "戰後1960年代"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "1922年台北市實施町名改正，設立「西門町」沿用至今。"
+  },
+  {
+    "id": "Q30",
+    "stationId": "S06",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "西門町昔日曾有「中華商場」矗立於中華路中央，這座八棟連棟建築最初是為了安置什麼而建？",
+    "options": [
+      "鐵道旁違建戶與來台軍民",
+      "日本觀光客",
+      "外國使節團",
+      "大學生宿舍"
+    ],
+    "ans": 0,
+    "reward": 8000,
+    "exp": "1961年落成的中華商場用以整頓中華路鐵道旁竹棚違建並安置軍民。"
+  },
+  {
+    "id": "Q31",
+    "stationId": "S07",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "中華民國童軍規律共有幾條？",
+    "options": [
+      "十二條",
+      "五條",
+      "十條",
+      "二十條"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "台灣現行童軍規律共十二條，包含誠實、忠孝、助人、仁愛等。"
+  },
+  {
+    "id": "Q32",
+    "stationId": "S07",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "野外露營搭設帳篷時，營釘與地面通常建議呈現幾度角斜插，抓地力最穩固？",
+    "options": [
+      "45度角（背對帳篷傾斜）",
+      "90度垂直",
+      "0度平貼地面",
+      "15度朝向帳篷內側"
+    ],
+    "ans": 0,
+    "reward": 4000,
+    "exp": "營釘與營繩約呈90度（與地面約45度背向帳篷）抗拉力最佳。"
+  },
+  {
+    "id": "Q33",
+    "stationId": "S07",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "童軍工程中，若要將兩根呈「直角十字交叉」的竹竿或木棍綁緊，應使用哪一種繩結？",
+    "options": [
+      "方回結（Square Lashing）",
+      "剪立結",
+      "平結",
+      "接繩結"
+    ],
+    "ans": 0,
+    "reward": 8000,
+    "exp": "方回結專用於固定兩根呈垂直交叉的營柱或竹竿。"
+  },
+  {
+    "id": "Q34",
+    "stationId": "S07",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "松山車站旁的「饒河街觀光夜市」是台北市早期成立的夜市之一，緊鄰哪條河流？",
+    "options": [
+      "基隆河",
+      "新店溪",
+      "大漢溪",
+      "景美溪"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "饒河街位於基隆河南岸，昔日為錫口水運碼頭聚落。"
+  },
+  {
+    "id": "Q35",
+    "stationId": "S07",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "松山車站旁的「松山慈祐宮」主祀哪位神明，並見證了昔日錫口港的繁華？",
+    "options": [
+      "天上聖母（媽祖）",
+      "保生大帝",
+      "關聖帝君",
+      "清水祖師"
+    ],
+    "ans": 0,
+    "reward": 6000,
+    "exp": "松山舊稱「錫口」，慈祐宮建於清乾隆年間，主祀媽祖，是當地重要信仰中心。"
+  },
+  {
+    "id": "Q36",
+    "stationId": "S07",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "松山區的舊地名「錫口」，源自平埔族凱達格蘭族語，其原意與什麼地理特徵有關？",
+    "options": [
+      "河流彎曲處",
+      "高山頂峰",
+      "溫泉湧泉",
+      "火山口"
+    ],
+    "ans": 0,
+    "reward": 9000,
+    "exp": "「錫口」原為凱達格蘭族語Malysyakkaw譯音，意指基隆河彎曲處。"
+  },
+  {
+    "id": "Q37",
+    "stationId": "S08",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "童軍握手禮規定使用哪一隻手，象徵信任與勇敢？",
+    "options": [
+      "左手",
+      "右手",
+      "雙手合十",
+      "不限左右手"
+    ],
+    "ans": 0,
+    "reward": 1000,
+    "exp": "左手最靠近心臟，象徵誠意與卸下盾牌的信任精神。"
+  },
+  {
+    "id": "Q38",
+    "stationId": "S08",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "在地圖判讀中，等高線越密集的地方代表該處地形為何？",
+    "options": [
+      "坡度越陡峭",
+      "地形越平坦",
+      "必定是湖泊",
+      "海拔一定低於海平面"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "等高線間距越窄代表垂直高度變化越快，即坡度越陡。"
+  },
+  {
+    "id": "Q39",
+    "stationId": "S08",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "指北針測量方位角時，若目標位於正東方，其方位角（Azimuth）應為幾度？",
+    "options": [
+      "90度",
+      "180度",
+      "270度",
+      "45度"
+    ],
+    "ans": 0,
+    "reward": 7000,
+    "exp": "方位角以正北為0度順時針計算，正東為90度、正南為180度、正西為270度。"
+  },
+  {
+    "id": "Q40",
+    "stationId": "S08",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "板橋著名國定古蹟「林本源園邸（林家花園）」是在哪個朝代興建完成的傳統園林？",
+    "options": [
+      "清代",
+      "明鄭時期",
+      "日治時期",
+      "民國時期"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "林本源園邸於清咸豐至光緒年間陸續興建完成，為台灣代表性園林建築。"
+  },
+  {
+    "id": "Q41",
+    "stationId": "S08",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "板橋舊稱「枋橋」，這個地名的由來與清代哪項交通設施有關？",
+    "options": [
+      "跨越溪溝的木板橋",
+      "鐵道高架橋",
+      "跨海大橋",
+      "吊橋纜車"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "清代林家與居民在湳仔溝架設木板橋方便通行，「枋橋」因而得名。"
+  },
+  {
+    "id": "Q42",
+    "stationId": "S08",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "現今「板橋車站」所在的四鐵/三鐵共構新站區（新板特區），過去曾是哪個公營單位的廠區？",
+    "options": [
+      "台灣省菸酒公賣局板橋酒廠",
+      "台電火力發電廠",
+      "中油煉油廠",
+      "台糖製糖廠"
+    ],
+    "ans": 0,
+    "reward": 8000,
+    "exp": "新板特區原址曾為板橋酒廠，遷廠後透過都市計畫轉型為行政商業中心。"
+  },
+  {
+    "id": "Q43",
+    "stationId": "S09",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "遇到同伴輕微燒燙傷時，正確的急救五步驟口訣為何？",
+    "options": [
+      "沖、脫、泡、蓋、送",
+      "抹、揉、冰、吹、包",
+      "塗牙膏、貼膠布",
+      "熱敷、按摩、包紮"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "燒燙傷急救應立即以流動冷水「沖」洗降溫，再依序「脫、泡、蓋、送」。"
+  },
+  {
+    "id": "Q44",
+    "stationId": "S09",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "當隊友發生輕微腳踝扭傷時，急救處理的「RICE」原則中，「E」代表什麼？",
+    "options": [
+      "抬高患處 (Elevation)",
+      "立即熱敷",
+      "大力按摩",
+      "繼續長跑"
+    ],
+    "ans": 0,
+    "reward": 3000,
+    "exp": "RICE為Rest休息、Ice冰敷、Compression加壓、Elevation抬高。"
+  },
+  {
+    "id": "Q45",
+    "stationId": "S09",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "進行童軍三角巾包紮時，大懸臂帶主要是用來固定哪個部位的傷勢？",
+    "options": [
+      "前臂或手腕骨折扭傷",
+      "腳踝扭傷",
+      "頭部外傷",
+      "膝蓋擦傷"
+    ],
+    "ans": 0,
+    "reward": 8000,
+    "exp": "大懸臂帶可將前臂舒適承托於胸前，減少活動與腫脹。"
+  },
+  {
+    "id": "Q46",
+    "stationId": "S09",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "龍山寺站旁的「剝皮寮歷史街區」保留了哪個時期的傳統街屋與騎樓風貌？",
+    "options": [
+      "清代至日治時期",
+      "荷蘭時期",
+      "戰後1990年代",
+      "史前時代"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "剝皮寮完整保存清代街廓尺度與日治時期牌樓厝建築特色。"
+  },
+  {
+    "id": "Q47",
+    "stationId": "S09",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "艋舺龍山寺建於清乾隆三年（1738年），是由來自中國大陸哪裡的移民共同集資興建？",
+    "options": [
+      "福建泉州三邑（晉江、南安、惠安）",
+      "廣東梅州",
+      "福建漳州",
+      "浙江溫州"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "泉州三邑移民渡海來台後在艋舺聚居，合資建龍山寺作為信仰中心。"
+  },
+  {
+    "id": "Q48",
+    "stationId": "S09",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "清代台灣俗諺「一府二鹿三艋舺」中的「艋舺」，源自平埔族語，原意是指什麼？",
+    "options": [
+      "獨木舟（或獨木舟聚集之處）",
+      "黃金港口",
+      "大草原",
+      "高山城堡"
+    ],
+    "ans": 0,
+    "reward": 9000,
+    "exp": "「艋舺（Monga）」源自凱達格蘭族語，意指淡水河上往來的獨木舟。"
+  },
+  {
+    "id": "Q49",
+    "stationId": "S10",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "童軍徽章中的「三葉」圖案，主要象徵童軍諾言的哪三項責任？",
+    "options": [
+      "對神明與國家、對他人、對自己",
+      "春、夏、秋三季",
+      "海、陸、空三軍",
+      "跑、跳、攀三項運動"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "三葉徽呼應童軍諾言的三項核心責任與行為準則。"
+  },
+  {
+    "id": "Q50",
+    "stationId": "S10",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "野外使用指北針與地形圖定位時，必須先將地圖上的什麼方向與實地北方對齊？",
+    "options": [
+      "正北（或經磁北校正後對齊）",
+      "正南方",
+      "太陽落下的方向",
+      "山谷最低處"
+    ],
+    "ans": 0,
+    "reward": 4000,
+    "exp": "地圖定向（Orienting the Map）須使地圖北方與實地北方一致，方能判讀方位。"
+  },
+  {
+    "id": "Q51",
+    "stationId": "S10",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "在童軍「估測」訓練中，利用「步測法」測量距離前，童軍必須先測出自己的什麼數值？",
+    "options": [
+      "平均步幅（每步長度）",
+      "最高跳躍高度",
+      "肺活量",
+      "體重與身高比例"
+    ],
+    "ans": 0,
+    "reward": 7000,
+    "exp": "事先在已知距離反覆行走算出平均步幅，才能在野外準確估算距離。"
+  },
+  {
+    "id": "Q52",
+    "stationId": "S10",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "位於南港的「台北流行音樂中心」外型設計靈感來自於什麼台灣傳統意象？",
+    "options": [
+      "台灣山脈群峰",
+      "古代帆船",
+      "傳統三合院",
+      "蒸汽火車頭"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "北流表演廳不規則幾何屋頂靈感源自台灣連綿的山脈意象。"
+  },
+  {
+    "id": "Q53",
+    "stationId": "S10",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "南港區早期因煤礦與茶葉聞名，其中哪種台灣茶的發源與南港大坑山區密切相關？",
+    "options": [
+      "包種茶",
+      "東方美人茶",
+      "凍頂烏龍茶",
+      "紅玉紅茶"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "南港大坑山區為台灣包種茶重要發源地之一。"
+  },
+  {
+    "id": "Q54",
+    "stationId": "S10",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "南港「瓶蓋工廠台北製造所」前身為日治時期的「國產軟木工業株式會社」，戰後主要生產什麼？",
+    "options": [
+      "台灣菸酒公賣局瓶蓋",
+      "塑膠玩具",
+      "汽車輪胎",
+      "玻璃窗框"
+    ],
+    "ans": 0,
+    "reward": 8000,
+    "exp": "戰後由公賣局接管更名為瓶蓋工廠，供應全台酒類與飲料瓶蓋。"
+  },
+  {
+    "id": "Q55",
+    "stationId": "S11",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "戶外活動若遇雷雨交加時，童軍應採取哪種正確避雷方式？",
+    "options": [
+      "遠離高大孤立樹木與金屬物，蹲低於低窪處",
+      "躲在大樹正下方",
+      "撐起金屬傘柄雨傘站在山頂",
+      "跳進溪水裡游泳"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "孤立高樹與金屬易引雷擊，應降低高度並雙腳併攏蹲低。"
+  },
+  {
+    "id": "Q56",
+    "stationId": "S11",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "童軍「雙半結（Two Half Hitches）」常用於將營繩綁在營柱或樹木上，它的特點是？",
+    "options": [
+      "可依需求滑動調整營繩鬆緊度",
+      "一拉就會散開",
+      "只能用於鋼索",
+      "無法承重超過1公斤"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "雙半結結構簡單且能在主繩上滑動調整張力，非常適合搭帳。"
+  },
+  {
+    "id": "Q57",
+    "stationId": "S11",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "進行野外生火前，童軍應準備哪三種不同粗細的燃料依序引燃？",
+    "options": [
+      "火絨（細乾草）、引火柴（細枝）、主燃柴（粗木）",
+      "石頭、沙子、濕樹葉",
+      "大樹幹、濕木炭、塑膠袋",
+      "報紙、鐵絲、泥土"
+    ],
+    "ans": 0,
+    "reward": 8000,
+    "exp": "由易燃的火絨引燃細枝，待火勢穩定再加入粗木維持熱源。"
+  },
+  {
+    "id": "Q58",
+    "stationId": "S11",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "淡水老街上的「淡水福佑宮」是當地最古老的廟宇之一，主要祭祀哪位神明？",
+    "options": [
+      "天上聖母（媽祖）",
+      "關聖帝君",
+      "城隍爺",
+      "土地公"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "淡水福佑宮建於清嘉慶年間，主祀護佑航海漁民的媽祖。"
+  },
+  {
+    "id": "Q59",
+    "stationId": "S11",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "十九世紀末在淡水創辦「滬尾偕醫館」與「理學堂大書院」（牛津學堂）的宣教士是誰？",
+    "options": [
+      "馬偕博士（George Leslie Mackay）",
+      "巴克禮博士",
+      "蘭大衛醫師",
+      "蔣渭水醫師"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "馬偕博士於淡水行醫、興學並引進西式教育，深耕北台灣。"
+  },
+  {
+    "id": "Q60",
+    "stationId": "S11",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "淡水紅毛城最初是由哪一個歐洲國家於1628年興建（原名聖多明哥城）？",
+    "options": [
+      "西班牙",
+      "荷蘭",
+      "葡萄牙",
+      "英國"
+    ],
+    "ans": 0,
+    "reward": 9000,
+    "exp": "西班牙人於1628年建聖多明哥城，後由荷蘭人重建並被當地人稱為紅毛城。"
+  },
+  {
+    "id": "Q61",
+    "stationId": "S12",
+    "category": "童軍知識",
+    "difficulty": "簡單",
+    "q": "童軍進行山區健行時，隊伍行進應遵循什麼原則以確保沒有隊員落單？",
+    "options": [
+      "前後設領隊與押隊，依最慢者調整步調",
+      "走得最快的人先衝到終點",
+      "各自解散自由活動",
+      "夜行時關閉所有手電筒"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "領隊控制路線、押隊照顧殿後人員，維持團隊安全步調。"
+  },
+  {
+    "id": "Q62",
+    "stationId": "S12",
+    "category": "童軍知識",
+    "difficulty": "中等",
+    "q": "戶外淨水時，若找不到乾淨水源而取用溪水，最保險的飲用前處理方式為何？",
+    "options": [
+      "過濾沉澱後徹底煮沸至少一分鐘",
+      "直接飲用清澈溪水",
+      "加入糖漿調味後直接喝",
+      "用陽光曬十分鐘即可"
+    ],
+    "ans": 0,
+    "reward": 5000,
+    "exp": "過濾可去除雜質，徹底煮沸則能消滅水中病原微生物。"
+  },
+  {
+    "id": "Q63",
+    "stationId": "S12",
+    "category": "童軍知識",
+    "difficulty": "困難",
+    "q": "在野外求生與露營生火時，「井字型（Log Cabin）」營火堆的主要優點為何？",
+    "options": [
+      "通風良好、燃燒均勻且易形成穩定炭火",
+      "完全不會產生煙霧",
+      "只能用濕木頭點燃",
+      "火勢無法控制"
+    ],
+    "ans": 0,
+    "reward": 10000,
+    "exp": "井字型架柴法空氣流通佳，適合炊事與營火晚會產生均勻熱源。"
+  },
+  {
+    "id": "Q64",
+    "stationId": "S12",
+    "category": "文史知識",
+    "difficulty": "簡單",
+    "q": "瑞芳車站是前往平溪線與哪兩座知名山城小鎮的重要鐵路轉運門戶？",
+    "options": [
+      "九份與金瓜石",
+      "陽明山與北投",
+      "烏來與坪林",
+      "三峽與鶯歌"
+    ],
+    "ans": 0,
+    "reward": 2000,
+    "exp": "瑞芳站為進入九份、金瓜石及平溪線旅遊的核心轉乘站。"
+  },
+  {
+    "id": "Q65",
+    "stationId": "S12",
+    "category": "文史知識",
+    "difficulty": "中等",
+    "q": "瑞芳區早期因開採哪兩種地下礦產而帶動地方繁榮與鐵路興建？",
+    "options": [
+      "煤礦與金礦",
+      "鑽石與石油",
+      "鹽礦與硫磺",
+      "大理石與水晶"
+    ],
+    "ans": 0,
+    "reward": 6000,
+    "exp": "瑞芳（含九份、金瓜石、猴硐）曾為北台灣重要的金礦與煤礦產區。"
+  },
+  {
+    "id": "Q66",
+    "stationId": "S12",
+    "category": "文史知識",
+    "difficulty": "困難",
+    "q": "連結瑞芳與十分、菁桐的「台鐵平溪線」，最初在日治時期興建的主要目的為何？",
+    "options": [
+      "運送台陽礦業開採的煤炭",
+      "載運觀光客賞天燈",
+      "軍事防空運兵",
+      "運送淡水漁獲"
+    ],
+    "ans": 0,
+    "reward": 9000,
+    "exp": "平溪線原為日治時期台陽礦業所建的運煤專用鐵道，後轉型為觀光支線。"
+  }
+];
+
+    const DEFAULT_PLAYERS = [
+      { id: 'P1', name: '藍鯨小隊', color: '#2563eb', pos: 0, cash: 15000 },
+      { id: 'P2', name: '紅鷹小隊', color: '#dc2626', pos: 0, cash: 15000 }
+    ];
+
+    const COLOR_PALETTE = ['#2563eb', '#dc2626', '#d97706', '#7c3aed'];
+
+    let state = {
+      stations: JSON.parse(JSON.stringify(INITIAL_STATIONS)),
+      questions: JSON.parse(JSON.stringify(INITIAL_QUESTIONS)),
+      players: JSON.parse(JSON.stringify(DEFAULT_PLAYERS)),
+      currentPlayerIdx: 0,
+      turn: 1,
+      isAnimating: false,
+      selectedStationIdx: 1,
+      gasUrl: '',
+      logs: []
+    };
+
+    try {
+      const savedUrl = localStorage.getItem('scout_monopoly_gas_url');
+      if (savedUrl) state.gasUrl = savedUrl;
+    } catch (_) {}
+
+    // --- Helpers ---
+    const fmt = (n) => `NT$${Number(n || 0).toLocaleString('zh-TW')}`;
+
+    function calcQuestionReward(stationPrice, difficulty) {
+      const ratio = difficulty === '簡單' ? 0.2 : (difficulty === '中等' ? 0.35 : 0.5);
+      const raw = Math.round((stationPrice * ratio) / 1000) * 1000;
+      return Math.min(10000, Math.max(1000, raw));
+    }
+
+    function showToast(msg, tone = 'info') {
+      const box = document.getElementById('toastBox');
+      const el = document.createElement('div');
+      const colors = {
+        info: 'bg-slate-900 text-white',
+        success: 'bg-emerald-700 text-white',
+        warn: 'bg-amber-500 text-slate-950',
+        error: 'bg-rose-600 text-white'
+      };
+      el.className = `px-4 py-2.5 rounded-xl shadow-lg text-xs font-bold ${colors[tone] || colors.info} transition-opacity duration-300 pointer-events-auto`;
+      el.textContent = msg;
+      box.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 300);
+      }, 2800);
+    }
+
+    function addLog(playerName, action, stationName, amountChange, note) {
+      const time = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      state.logs.unshift({ time, playerName, action, stationName, amountChange, note });
+      if (state.logs.length > 40) state.logs.pop();
+      renderLogs();
+      if (state.gasUrl) {
+        postToSheet({ action: 'log', row: [new Date().toLocaleString('zh-TW'), playerName, action, stationName, amountChange, note] });
+      }
+    }
+
+    async function postToSheet(payload) {
+      if (!state.gasUrl || !state.gasUrl.startsWith('https://')) return;
+      try {
+        await fetch(state.gasUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.warn('Sheet sync warning:', err);
+      }
+    }
+
+    function syncAllToSheet() {
+      if (!state.gasUrl) return;
+      const playersPayload = state.players.map((p) => {
+        const propsCount = state.stations.reduce((acc, s) => acc + s.owners.filter((o) => o === p.name).length, 0);
+        const propsVal = state.stations.reduce((acc, s) => acc + s.owners.filter((o) => o === p.name).length * s.price, 0);
+        return { id: p.id, name: p.name, color: p.color, pos: p.pos, cash: p.cash, propsCount, totalAsset: p.cash + propsVal };
+      });
+      const stationsPayload = state.stations.map((s) => ({ purchaseCount: s.purchaseCount, owners: s.owners }));
+      postToSheet({ action: 'syncPlayers', players: playersPayload });
+      postToSheet({ action: 'syncStations', stations: stationsPayload });
+    }
+
+    // --- Render Functions ---
+    function renderBoard() {
+      const container = document.getElementById('boardContainer');
+      container.querySelectorAll('.station-cell').forEach((el) => el.remove());
+
+      const centerEl = container.querySelector('.board-center');
+      state.stations.forEach((st, idx) => {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        const isSelected = state.selectedStationIdx === idx;
+        const cityBadge = st.city === '新北' ? 'bg-sky-100 text-sky-800' : 'bg-emerald-100 text-emerald-800';
+        const tokensHere = state.players.filter((p) => p.pos === idx);
+
+        cell.className = `station-cell cell-pos-${idx} text-left rounded-xl p-2.5 border transition flex flex-col justify-between bg-white hover:shadow-md ${
+          isSelected ? 'border-amber-500 ring-2 ring-amber-300' : 'border-emerald-200'
+        } ${idx === 0 ? 'bg-gradient-to-br from-amber-50 to-emerald-50' : ''}`;
+
+        cell.innerHTML = `
+          <div class="flex items-start justify-between gap-1">
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${idx === 0 ? 'bg-amber-200 text-amber-900' : cityBadge}">${st.city}・${st.type}</span>
+            ${st.purchaseCount > 0 ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-800">×${st.purchaseCount}</span>` : ''}
+          </div>
+          <div class="my-1">
+            <div class="text-xs font-extrabold text-slate-900 leading-snug">${st.name}</div>
+            <div class="text-[11px] font-semibold ${st.price > 0 ? 'text-emerald-700' : 'text-amber-700'}">
+              ${st.price > 0 ? fmt(st.price) : '領取 NT$2,000'}
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-1 min-h-[20px]">
+            <div class="flex flex-wrap gap-1">
+              ${tokensHere.map((p) => `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black text-white shadow" style="background:${p.color}" title="${p.name}">${p.name.slice(0, 1)}</span>`).join('')}
+            </div>
+            ${st.owners.length > 0 ? `<span class="text-[10px] text-slate-500 truncate max-w-[75px]" title="${st.owners.join('、')}">${st.owners[st.owners.length - 1]}${st.owners.length > 1 ? '等' : ''}</span>` : ''}
+          </div>
+        `;
+        cell.addEventListener('click', () => {
+          state.selectedStationIdx = idx;
+          renderBoard();
+          renderInspector();
+        });
+        container.insertBefore(cell, centerEl);
+      });
+
+      const activeP = state.players[state.currentPlayerIdx];
+      document.getElementById('turnCounter').textContent = state.turn;
+      document.getElementById('activePlayerBadge').innerHTML = `
+        <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${activeP.color}"></span>
+        <span>${activeP.name}</span>
+      `;
+      document.getElementById('hintPlayerName').textContent = activeP.name;
+      document.getElementById('btnRollDice').disabled = state.isAnimating;
+    }
+
+    function renderPlayers() {
+      const list = document.getElementById('playersList');
+      list.innerHTML = state.players.map((p, idx) => {
+        const isCurrent = idx === state.currentPlayerIdx;
+        const ownedCount = state.stations.reduce((acc, s) => acc + s.owners.filter((o) => o === p.name).length, 0);
+        const ownedValue = state.stations.reduce((acc, s) => acc + s.owners.filter((o) => o === p.name).length * s.price, 0);
+        const stationName = state.stations[p.pos].name;
+        return `
+          <div class="p-2.5 rounded-xl border ${isCurrent ? 'border-amber-400 bg-amber-50/50' : 'border-slate-200 bg-slate-50/60'} flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="w-7 h-7 rounded-full text-white font-black text-xs flex items-center justify-center shrink-0 shadow" style="background:${p.color}">${p.name.slice(0, 1)}</span>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                  ${p.name}
+                  ${isCurrent ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-200 text-amber-900">行動中</span>' : ''}
+                </div>
+                <div class="text-[11px] text-slate-500 truncate">📍 ${stationName}・土地 ${ownedCount} 筆</div>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="text-xs font-extrabold text-emerald-700">${fmt(p.cash)}</div>
+              <div class="text-[10px] text-slate-400">總資產 ${fmt(p.cash + ownedValue)}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderInspector() {
+      const st = state.stations[state.selectedStationIdx];
+      const body = document.getElementById('inspectorBody');
+      if (!st) return;
+      body.innerHTML = `
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-extrabold text-slate-900">${st.name}</span>
+          <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">${st.city}・${st.line}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+            <div class="text-[10px] text-slate-400">參考公告現值</div>
+            <div class="font-bold text-slate-800">${st.announcedVal > 0 ? fmt(st.announcedVal) + '/㎡' : '無（起點）'}</div>
+          </div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+            <div class="text-[10px] text-slate-400">遊戲地價（整數千元）</div>
+            <div class="font-extrabold text-emerald-700">${st.price > 0 ? fmt(st.price) : '免購地'}</div>
+          </div>
+        </div>
+        <p><span class="font-semibold text-slate-700">鄰近地標：</span>${st.landmark}</p>
+        <p><span class="font-semibold text-slate-700">單次過路費基準：</span>${fmt(st.baseToll)}（依他隊持股數倍增）</p>
+        ${st.id !== 'S01' ? `<p><span class="font-semibold text-slate-700">答題獎金（依地價連動）：</span>簡單 ${fmt(calcQuestionReward(st.price, '簡單'))} ／ 中等 ${fmt(calcQuestionReward(st.price, '中等'))} ／ 困難 ${fmt(calcQuestionReward(st.price, '困難'))}</p>` : ''}
+        <p><span class="font-semibold text-slate-700">累計購買次數：</span>${st.purchaseCount} 次 ${st.owners.length ? `（${st.owners.join('、')}）` : '（尚無小隊持有）'}</p>
+        ${st.id !== 'S01' ? `<p><span class="font-semibold text-slate-700">站點題庫配置：</span>童軍知識 ${state.questions.filter(q => q.stationId === st.id && q.category === '童軍知識').length} 題 ／ 文史知識 ${state.questions.filter(q => q.stationId === st.id && q.category === '文史知識').length} 題</p>` : ''}
+      `;
+    }
+
+    function renderLogs() {
+      const box = document.getElementById('gameLog');
+      if (state.logs.length === 0) {
+        box.innerHTML = '<p class="text-slate-400">尚無行動紀錄，請擲骰子開始遊戲！</p>';
+        return;
+      }
+      box.innerHTML = state.logs.map((l) => `
+        <div class="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-start justify-between gap-2">
+          <div>
+            <span class="font-bold text-slate-800">${l.playerName}</span>
+            <span class="text-emerald-700 font-semibold">[${l.action}]</span>
+            <span class="text-slate-600">${l.note}</span>
+          </div>
+          <span class="text-[10px] text-slate-400 shrink-0">${l.time}</span>
+        </div>
+      `).join('');
+    }
+
+    function updateSyncBadge() {
+      const dot = document.getElementById('syncDot');
+      const label = document.getElementById('syncLabel');
+      if (state.gasUrl) {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        label.textContent = 'Google Sheet 已連線';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        label.textContent = '本機演示模式';
+      }
+    }
+
+    // --- Core Gameplay ---
+    function handleRollDice() {
+      if (state.isAnimating) return;
+      state.isAnimating = true;
+      const diceEl = document.getElementById('diceVisual');
+      diceEl.classList.add('dice-rolling');
+      document.getElementById('btnRollDice').disabled = true;
+
+      const steps = Math.floor(Math.random() * 6) + 1;
+      setTimeout(() => {
+        diceEl.classList.remove('dice-rolling');
+        diceEl.textContent = steps;
+        movePlayerStepByStep(steps);
+      }, 480);
+    }
+
+    function movePlayerStepByStep(stepsRemaining) {
+      const p = state.players[state.currentPlayerIdx];
+      let left = stepsRemaining;
+      const timer = setInterval(() => {
+        p.pos = (p.pos + 1) % state.stations.length;
+        if (p.pos === 0) {
+          p.cash += 2000;
+          showToast(`${p.name} 經過起點，獲得補給金 NT$2,000！`, 'success');
+          addLog(p.name, '經過起點', '起點｜童軍總部', 2000, '領取補給金 NT$2,000');
+        }
+        state.selectedStationIdx = p.pos;
+        renderBoard();
+        renderPlayers();
+        renderInspector();
+        left -= 1;
+        if (left <= 0) {
+          clearInterval(timer);
+          onLandStation(p, state.stations[p.pos], stepsRemaining);
+        }
+      }, 240);
+    }
+
+    function onLandStation(player, station, rolled) {
+      addLog(player.name, '擲骰移動', station.name, 0, `擲出 ${rolled} 點，抵達「${station.name}」`);
+
+      // Check toll if landed on station with other owners
+      if (station.id !== 'S01' && station.owners.length > 0) {
+        const otherOwners = station.owners.filter((o) => o !== player.name);
+        if (otherOwners.length > 0) {
+          const totalToll = station.baseToll * otherOwners.length;
+          const paid = Math.min(player.cash, totalToll);
+          player.cash -= paid;
+          const perShare = Math.floor(paid / otherOwners.length);
+          otherOwners.forEach((ownerName) => {
+            const target = state.players.find((pl) => pl.name === ownerName);
+            if (target) target.cash += perShare;
+          });
+          showToast(`${player.name} 支付過路費 ${fmt(paid)} 給地主！`, 'warn');
+          addLog(player.name, '過路費', station.name, -paid, `支付 ${otherOwners.length} 筆持股過路費 ${fmt(paid)}`);
+          renderPlayers();
+        }
+      }
+
+      if (station.id === 'S01') {
+        finishTurn();
+        return;
+      }
+
+      openTriviaModal(player, station);
+    }
+
+    function openTriviaModal(player, station) {
+      const pool = state.questions.filter((q) => q.stationId === station.id);
+      const q = pool.length > 0
+        ? pool[Math.floor(Math.random() * pool.length)]
+        : state.questions[Math.floor(Math.random() * state.questions.length)];
+
+      const reward = calcQuestionReward(station.price, q.difficulty);
+      document.getElementById('qCategoryBadge').textContent = q.category;
+      document.getElementById('qDifficultyBadge').textContent = q.difficulty;
+      document.getElementById('qRewardBadge').textContent = `獎金 ${fmt(reward)}`;
+      document.getElementById('qStationSubtitle').textContent = `抵達站點：${station.name}（地價 ${fmt(station.price)}｜${station.landmark}）`;
+      document.getElementById('qText').textContent = q.q;
+
+      const feedbackEl = document.getElementById('qFeedback');
+      feedbackEl.classList.add('hidden');
+      const continueBtn = document.getElementById('btnTriviaContinue');
+      continueBtn.classList.add('hidden');
+
+      const optsEl = document.getElementById('qOptions');
+      optsEl.innerHTML = '';
+
+      // Shuffle options while tracking correct text
+      const correctText = q.options[q.ans];
+      const shuffled = [...q.options].sort(() => Math.random() - 0.5);
+
+      shuffled.forEach((optText, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'w-full text-left px-4 py-2.5 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 text-sm font-medium text-slate-800 transition';
+        btn.textContent = `${['A', 'B', 'C', 'D'][i]}. ${optText}`;
+        btn.addEventListener('click', () => {
+          optsEl.querySelectorAll('button').forEach((b) => (b.disabled = true));
+          const isCorrect = optText === correctText;
+          if (isCorrect) {
+            btn.className = 'w-full text-left px-4 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-100 text-sm font-bold text-emerald-900';
+            player.cash += reward;
+            feedbackEl.className = 'rounded-xl p-3 text-xs leading-relaxed bg-emerald-50 text-emerald-900 border border-emerald-200';
+            feedbackEl.innerHTML = `<strong>答對了！獲得 ${fmt(reward)}</strong><br/>${q.exp}`;
+            addLog(player.name, '答題成功', station.name, reward, `${q.category}（${q.difficulty}）進帳 ${fmt(reward)}`);
+            if (typeof confetti === 'function') confetti({ particleCount: 45, spread: 55, origin: { y: 0.7 } });
+          } else {
+            btn.className = 'w-full text-left px-4 py-2.5 rounded-xl border-2 border-rose-500 bg-rose-50 text-sm font-bold text-rose-900';
+            feedbackEl.className = 'rounded-xl p-3 text-xs leading-relaxed bg-rose-50 text-rose-900 border border-rose-200';
+            feedbackEl.innerHTML = `<strong>答錯了！正解為「${correctText}」</strong><br/>${q.exp}`;
+            addLog(player.name, '答題失敗', station.name, 0, `${q.category}（${q.difficulty}）未獲獎金`);
+          }
+          feedbackEl.classList.remove('hidden');
+          continueBtn.classList.remove('hidden');
+          renderPlayers();
+        });
+        optsEl.appendChild(btn);
+      });
+
+      continueBtn.onclick = () => {
+        document.getElementById('triviaModal').classList.add('hidden');
+        document.getElementById('triviaModal').classList.remove('flex');
+        openBuyModal(player, station);
+      };
+
+      const modal = document.getElementById('triviaModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function openBuyModal(player, station) {
+      document.getElementById('buyStationTag').textContent = station.name;
+      document.getElementById('buyLandmark').textContent = station.landmark;
+      document.getElementById('buyAnnounced').textContent = `${fmt(station.announcedVal)} / ㎡`;
+      document.getElementById('buyPrice').textContent = fmt(station.price);
+      document.getElementById('buyCount').textContent = `${station.purchaseCount} 次（可重複購買）`;
+      document.getElementById('buyCash').textContent = fmt(player.cash);
+
+      const canAfford = player.cash >= station.price;
+      const confirmBtn = document.getElementById('btnConfirmBuy');
+      confirmBtn.disabled = !canAfford;
+
+      document.getElementById('buyHintText').textContent = canAfford
+        ? `資金充足！購買後將新增 1 筆「${station.name}」土地持有紀錄，過路費收益將同步疊加。`
+        : `目前現金不足 ${fmt(station.price)}，無法購買該站土地，請點擊暫不購買結束本回合。`;
+
+      confirmBtn.onclick = () => {
+        if (player.cash < station.price) return;
+        player.cash -= station.price;
+        station.purchaseCount += 1;
+        station.owners.push(player.name);
+        showToast(`${player.name} 成功購入「${station.name}」（累計第 ${station.purchaseCount} 筆）！`, 'success');
+        addLog(player.name, '購買土地', station.name, -station.price, `花費 ${fmt(station.price)} 購入第 ${station.purchaseCount} 筆產權`);
+        closeBuyModal();
+        finishTurn();
+      };
+
+      document.getElementById('btnSkipBuy').onclick = () => {
+        closeBuyModal();
+        finishTurn();
+      };
+
+      const modal = document.getElementById('buyModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeBuyModal() {
+      const modal = document.getElementById('buyModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function finishTurn() {
+      state.currentPlayerIdx = (state.currentPlayerIdx + 1) % state.players.length;
+      if (state.currentPlayerIdx === 0) state.turn += 1;
+      state.isAnimating = false;
+      syncAllToSheet();
+      renderBoard();
+      renderPlayers();
+      renderInspector();
+    }
+
+    // --- Modals & Actions ---
+    function openPlayersModal() {
+      const rows = document.getElementById('playersEditRows');
+      const renderRows = () => {
+        rows.innerHTML = state.players.map((p, idx) => `
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full shrink-0" style="background:${p.color}"></span>
+            <input data-pidx="${idx}" type="text" value="${p.name}" class="player-name-input flex-1 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold" />
+            ${state.players.length > 2 ? `<button type="button" data-del="${idx}" class="del-player-btn text-xs text-rose-600 hover:underline px-1">移除</button>` : ''}
+          </div>
+        `).join('');
+        rows.querySelectorAll('.del-player-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const idx = Number(btn.getAttribute('data-del'));
+            state.players.splice(idx, 1);
+            if (state.currentPlayerIdx >= state.players.length) state.currentPlayerIdx = 0;
+            renderRows();
+          });
+        });
+      };
+      renderRows();
+
+      document.getElementById('btnAddPlayer').onclick = () => {
+        if (state.players.length >= 4) {
+          showToast('最多支援 4 支小隊同時對戰', 'warn');
+          return;
+        }
+        const n = state.players.length + 1;
+        state.players.push({ id: `P${n}`, name: `第${n}小隊`, color: COLOR_PALETTE[(n - 1) % 4], pos: 0, cash: 15000 });
+        renderRows();
+      };
+
+      document.getElementById('btnSavePlayers').onclick = () => {
+        rows.querySelectorAll('.player-name-input').forEach((inp) => {
+          const idx = Number(inp.getAttribute('data-pidx'));
+          const val = inp.value.trim();
+          if (val) state.players[idx].name = val;
+        });
+        document.getElementById('playersModal').classList.add('hidden');
+        document.getElementById('playersModal').classList.remove('flex');
+        renderBoard();
+        renderPlayers();
+        showToast('小隊設定已更新', 'success');
+      };
+
+      const modal = document.getElementById('playersModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    async function syncFromSheet() {
+      if (!state.gasUrl) {
+        showToast('目前為本機演示模式，請先設定 Google Apps Script URL', 'info');
+        return;
+      }
+      try {
+        const res = await fetch(state.gasUrl);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (Array.isArray(data.stations) && data.stations.length >= 12) {
+          data.stations.forEach((row, i) => {
+            if (state.stations[i]) {
+              state.stations[i].purchaseCount = Number(row.Purchase_Count || 0);
+              state.stations[i].owners = row.Owners ? String(row.Owners).split('、').filter(Boolean) : [];
+            }
+          });
+        }
+        showToast('已從 Google Sheet 同步最新試算表資料！', 'success');
+        renderBoard();
+        renderPlayers();
+        renderInspector();
+      } catch (err) {
+        showToast('試算表讀取失敗，請確認 Apps Script 部署權限為「所有人」', 'error');
+      }
+    }
+
+    // --- Event Bindings ---
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('btnRollDice').addEventListener('click', handleRollDice);
+      document.getElementById('btnSyncNow').addEventListener('click', syncFromSheet);
+      document.getElementById('btnPlayersModal').addEventListener('click', openPlayersModal);
+      document.getElementById('btnClosePlayersModal').addEventListener('click', () => {
+        document.getElementById('playersModal').classList.add('hidden');
+        document.getElementById('playersModal').classList.remove('flex');
+      });
+
+      document.getElementById('btnSheetModal').addEventListener('click', () => {
+        document.getElementById('gasUrlInput').value = state.gasUrl;
+        const m = document.getElementById('sheetModal');
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+      });
+      document.getElementById('btnCloseSheetModal').addEventListener('click', () => {
+        document.getElementById('sheetModal').classList.add('hidden');
+        document.getElementById('sheetModal').classList.remove('flex');
+      });
+
+      document.getElementById('btnSaveGasUrl').addEventListener('click', () => {
+        const url = document.getElementById('gasUrlInput').value.trim();
+        state.gasUrl = url;
+        try { localStorage.setItem('scout_monopoly_gas_url', url); } catch (_) {}
+        updateSyncBadge();
+        if (url) syncFromSheet();
+        else showToast('已切換回本機演示模式', 'info');
+      });
+
+      document.getElementById('btnCopyGas').addEventListener('click', () => {
+        const code = document.getElementById('gasCodeBlock').textContent;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(() => showToast('已複製 Apps Script 程式碼！', 'success'));
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = code;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          showToast('已複製 Apps Script 程式碼！', 'success');
+        }
+      });
+
+      document.getElementById('btnResetGame').addEventListener('click', () => {
+        state.stations = JSON.parse(JSON.stringify(INITIAL_STATIONS));
+        state.players = state.players.map((p) => ({ ...p, pos: 0, cash: 15000 }));
+        state.currentPlayerIdx = 0;
+        state.turn = 1;
+        state.isAnimating = false;
+        state.logs = [];
+        addLog('系統', '開局重置', '起點｜童軍總部', 0, '雙北捷運鐵道大富翁新局開始');
+        renderBoard();
+        renderPlayers();
+        renderInspector();
+        showToast('遊戲已重置開局！', 'info');
+      });
+
+      document.getElementById('btnExportJson').addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify({ stations: state.stations, players: state.players, logs: state.logs }, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'taipei_newtaipei_scout_monopoly_log.json';
+        a.click();
+      });
+
+      updateSyncBadge();
+      addLog('系統', '開局初始化', '起點｜童軍總部', 0, '雙北 12 站點載入完成，初始資金 NT$15,000');
+      renderBoard();
+      renderPlayers();
+      renderInspector();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
